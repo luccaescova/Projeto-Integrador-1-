@@ -161,3 +161,22 @@ Projeto desenvolvido para a disciplina de Projeto Integrador, com foco em:
 * Operações CRUD
 * Cálculo de precificação de produtos
 * Criptografia básica de dados
+
+## Observação Importante
+
+Este repositório não contém a implementação completa do projeto original.
+
+Durante o desenvolvimento, parte do controle de versões e do gerenciamento das alterações foi realizado diretamente em hardware e em ambientes locais da equipe, não sendo totalmente integrado ao sistema de versionamento do código-fonte.
+
+Por esse motivo, algumas funcionalidades, ajustes e versões intermediárias desenvolvidas ao longo do projeto podem não estar presentes nesta versão disponibilizada no repositório.
+
+O código disponibilizado representa a versão final funcional utilizada para demonstração das principais características do sistema, incluindo:
+
+* Integração com Oracle Database;
+* Operações de CRUD de produtos;
+* Cálculo de precificação;
+* Relatórios de preços;
+* Criptografia e descriptografia de descrições.
+
+Eventuais diferenças entre esta versão e a apresentada durante o desenvolvimento decorrem do processo de controle de versões adotado pela equipe durante a execução do projeto.
+
