@@ -1,269 +1,286 @@
 import oracledb
-#conexão oracle
-connection = oracledb.connect(
-    user = "",
-    password='',
-    dsn="BD-ACD/XE"
-)
-print("Conectado ao banco de dados")
-#Se for testar modificar os dados acima
-connection.commit()
-#
-#A coluna descrição provavelmente ta com o nome errado aqui, ver no bd e alterar aqui ou lá
-#
+from abc import ABC, abstractmethod
+from typing import List, Optional
 
-repetir = 1
-#função update
-#checar se realmente precisa ter um argumento ali
-#CRIAR um loop dentro da função para alterar os dados quantas vezes quiser
-def update(idupdate):
-    oque =int(input("O que deseja alterar?\n1 - Nome\n2 - Descrição\n3 - Custo do produto\n4 - Custo fixo\n5 - Comissão de vendas\n6 - Imposto sobre vendas \n7 - Margem de lucro\nSelecione uma opção: "))
-    if (oque == 1):
-        novo = input("Insira o novo nome: ")
-        cursor = connection.cursor()
-        cursor.execute("UPDATE produtos_pi SET NOME = :novo WHERE CODIGO=:qual", [novo,idupdate])
-        cursor.close
+# ==========================================
+# 1. CAMADA DE DOMÍNIO (Interfaces e Entidades)
+# ==========================================
 
-    elif oque == 2:
-        novo = input("Insira a nova descrição: ")
-        novo = trans(1,novo)
-        cursor = connection.cursor()
-        cursor.execute("UPDATE produtos_pi SET DESCRICAO = :novo WHERE CODIGO=:qual", [novo,idupdate])
-        cursor.close
+class ICryptography(ABC):
+    @abstractmethod
+    def encrypt(self, text: str) -> str:
+        pass
 
-    elif oque == 3:
-        novo=float(input("Insira o novo custo do produto"))
-        cursor = connection.cursor()
-        cursor.execute("UPDATE produtos_pi SET CP = :novo WHERE CODIGO=:qual", [novo,idupdate])
-        cursor.close
+    @abstractmethod
+    def decrypt(self, text: str) -> str:
+        pass
 
-    elif oque == 4:
-        novo=float(input("Insira o novo custo fixo"))
-        cursor = connection.cursor()
-        cursor.execute("UPDATE produtos_pi SET CF = :novo WHERE CODIGO=:qual", [novo,idupdate])
-        cursor.close
+
+class Product:
+    """Entidade de Domínio representando o Produto e suas regras financeiras."""
+    def __init__(self, codigo: int, nome: str, descricao: str, cp: float, 
+                 cf: float, cv: float, iv: float, ml: float):
+        self.codigo = codigo
+        self.nome = nome
+        self.descricao = descricao
+        self.cp = cp  # Custo de Aquisição
+        self.cf = cf  # Custo Fixo (%)
+        self.cv = cv  # Comissão de Vendas (%)
+        self.iv = iv  # Imposto sobre Vendas (%)
+        self.ml = ml  # Margem de Lucro (%)
+
+    def calculate_financials(self) -> dict:
+        """Centraliza a lógica de cálculo de precificação (Clean Code: Sem duplicação)"""
+        try:
+            pv = self.cp / (1 - ((self.cf + self.cv + self.iv + self.ml) / 100))
+        except ZeroDivisionError:
+            pv = 0.0
+
+        cf_val = (self.cf / 100) * pv
+        cv_val = (self.cv / 100) * pv
+        iv_val = (self.iv / 100) * pv
+        oc = cf_val + cv_val + iv_val
+        rb = pv - self.cp
+        ra = rb - oc
+
+        return {
+            "pv": pv, "cf_val": cf_val, "cv_val": cv_val,
+            "iv_val": iv_val, "oc": oc, "rb": rb, "ra": ra
+        }
+
+    def get_margin_classification(self) -> str:
+        if self.ml > 20: return "Alta"
+        if 10 <= self.ml <= 20: return "Média"
+        if 0 < self.ml < 10: return "Baixa"
+        if self.ml == 0: return "Em Equilíbrio"
+        return "Prejuízo"
+
+
+class IProductRepository(ABC):
+    """Interface abstrata para o Banco de Dados (SOLID: DIP)"""
+    @abstractmethod
+    def save(self, product: Product) -> None: pass
     
-    elif oque == 5:
-        novo=float(input("Insira a nova comissão de vendas"))
-        cursor = connection.cursor()
-        cursor.execute("UPDATE produtos_pi SET CV = :novo WHERE CODIGO=:qual", [novo,idupdate])
-        cursor.close
-    elif oque == 6:
-        novo=float(input("Insira o novo imposto sobre vendas"))
-        cursor = connection.cursor()
-        cursor.execute("UPDATE produtos_pi SET IV = :novo WHERE CODIGO=:qual", [novo,idupdate])
-        cursor.close
-    elif oque == 7:
-        novo=float(input("Insira a nova margem de lucro"))
-        cursor = connection.cursor()
-        cursor.execute("UPDATE produtos_pi SET ML = :novo CODIGO ID=:qual", [novo,idupdate])
-        cursor.close
-    return(idupdate)
-def trans(qual,palavra):
-    m1 = []
-    m2 = []
-    criptografada = []
-    letras = {1:'A', 2:'B', 3:'C', 4:'D', 5:'E', 6:'F', 7:'G', 8:'H', 9:'I', 10:'J', 11:'K', 12:'L',13:'M',14:'N',15:'O',16:'P',17:'Q',18:'R',19:'S',20:'T',21:'U',22:'V',23:'W',24:'X',25:'Y',26:'Z', 27:' '}
-    palavra = palavra.upper()
-    for n in range (len(palavra)):
-        x = palavra[n]
-        if (n%2 == 0):
-            m1.append(x)
-        else:
-            m2.append(x)
-    if len(palavra)%2 != 0:
-        m2.append(" ")
-    for n in range (len(m1)):
-        m = n
-        for indice,letra in letras.items():
-            if (m1[n] == letra):
-                m1[n] = indice
-            if (m2[m] == letra):
-                m2[m] = indice
-    if qual == 0:
-        #Matriz inversa pré definida com cálculos no scilab, utilizando o inverso da determinante da matriz chave em um Z27 (quantia de entradas na indexação (dicionário letras))
-        m3 = [22, -33]
-        m4 = [-11, 44]
-    if qual == 1:
-        m3 = [4,3]
-        m4 = [1,2]
-    for n in range (len(m1)):
-        x = (m3[0]*m1[n]) + (m3[1]*m2[n])
-        if  (x==0) or (x<0) or (x >27):
-            x = x%27
-            criptografada.append(x)
-        else:
-            criptografada.append(x)
-        x = (m4[0]*m1[n]) + (m4[1]*m2[n])
-        if (x==0) or (x<0) or (x >27):
-            x = x%27
-            criptografada.append(x)
-        else:
-            criptografada.append(x)
-    for n in range (len(criptografada)):
-        x = criptografada[n]
-        for indice,letra in letras.items():
-            if x == indice:
-                criptografada[n] = letra
-        if qual == 0:
-            if criptografada[n] == 0:
-                criptografada[n] = ' '
-    palavraC = ''.join(criptografada)
-    return(palavraC)
-while (repetir == 1):
-    print("Escolha uma opção:\n1: Inserir produto\n2: cálculo de preço de algum produto\n3:Modificar produto\n4:Apagar produto\n5:Visualizar Produtos\n6:Visualizar Preços\n7:Sair do sistema")
-    op = int(input(" "))
-    while (not 1<op<7):
-        print("Insira uma opção válida")
-        op = int(input (" "))
-    if (op==1):
-        NO = input("Insira o nome do produto: ")
-        DESCRI = input("Insira a descrição do produto: ")
-        DESCRI = trans(1,DESCRI)
-        ID = int(input("Insira o ID do produto: "))
-        CP = input("Insira o custo base do produto:")
-        print("Insira os próximos dados em %")
-        CF = float(input("Insira o custo fixo: "))
-        CV = float(input("Insira a comissão de vendas: "))
-        IV = float(input("Insira os impostos sobre venda: "))
-        print("Alta >20%\nMédia >=10% até 20%\nBaixa >0% até 10%\nEqulíbrio = 0\nPrejuízo <0%")
-        ML = float(input("Insira a margem de lucro desejada: "))
-        #precisa fazer uma função pra criptografia
-        cursor = connection.cursor()
-        cursor.execute("INSERT INTO produtos_pi VALUES (:id, :nome, :descri, :cp, :cf, :cv, :iv, :ml)", [ID, NO, DESCRI, CP, CF, CV, IV, ML])
-        connection.commit()
-        cursor.close
+    @abstractmethod
+    def find_by_id(self, codigo: int) -> Optional[Product]: pass
+    
+    @abstractmethod
+    def update_field(self, codigo: int, field: str, value: any) -> None: pass
+    
+    @abstractmethod
+    def delete(self, codigo: int) -> None: pass
+    
+    @abstractmethod
+    def find_all(self) -> List[Product]: pass
 
- 
+# ==========================================
+# 2. SERVIÇOS E SEGURANÇA (Padrão GoF: Strategy)
+# ==========================================
 
-    if (op==2):
-        NO = input("Insira o nome do produto: ")
-        DESCRI = input("Insira a descrição do produto: ")
-        DESCRI = trans(1,DESCRI)
-        ID = input("Insira o ID do produto: ")
-        CP = float(input("Insira o custo do produto: "))
-        print("Insira os próximos dados em %")
-        CF = float(input("Insira o custo fixo: "))
-        CV = float(input("Insira a comissão de vendas: "))
-        IV = float(input("Insira os impostos sobre venda: "))
-        print("Alta >20%\nMédia >=10% até 20%\nBaixa >0% até 10%\nEqulíbrio = 0\nPrejuízo <0%")
-        ML = float(input("Insira a margem de lucro desejada: "))
-        #valores serão transformados em % na conta seguinte para calcular o preço de venda
-        PV = (CP/(1-((CF+CV+IV+ML)/100)))
-        #serão calculados os valores em %, baseado no preço de venda, de cada custo seguinte
-        CF = (CF/100)*PV
-        CV = (CV/100)*PV
-        IV = (IV/100)*PV
-        #serão definidas as seguintes variáveis com os valores definidos sendo baseados em PV
-        OC = CF+CV+IV
-        RB = PV-CP
-        RA = RB-OC
-        print(f"As informações do produto {NO} de ID {ID} são:")
-        print(f"Descrição                  Valor      %")
-        print(f"Preço de venda             {PV:.2f}    {(PV/PV)*100:.2f}%")
-        print(f"Custo de aquisição         {CP:.2f}    {(CP/PV)*100:.2f}%")
-        print(f"Receita bruta              {RB:.2f}    {(RB/PV)*100:.2f}%")
-        print(f"Custo fixo                 {CF:.2f}    {(CF/PV)*100:.2f}%")
-        print(f"Comissão de vendas         {CV:.2f}     {(CV/PV)*100:.2f}%")
-        print(f"Impostos                   {IV:.2f}    {(IV/PV)*100:.2f}%")
-        print(f"Outros custos (CF+CV+IV)   {OC:.2f}    {(OC/PV)*100:.2f}%")
-        print(f"Rentabilidade              {RA:.2f}     {(RA/PV)*100 :.2f}%")
-        #
-        #contas da margem de lucro pra printar
-        if (ML>20):
-            print(f"Margem de lucro ({ML}%) Alta")
-        if (10<=ML<=20):
-            print (f"Margem de lucro ({ML}%) Média")
-        if (0<ML<10):
-            print (f"Margem de lucro ({ML}%) Baixa")
-        if (ML == 0):
-            print (f"Margem de lucro ({ML}%) em equilíbrio")
-        if (ML<0):
-            print (f"Margem de lucro ({ML}%) prejuízo")
+class MatrixCryptography(ICryptography):
+    """Implementação da Criptografia Matricial original encapsulada."""
+    def __init__(self):
+        self.letras = {i: chr(64 + i) for i in range(1, 27)}
+        self.letras[27] = ' '
+        self.letras_inv = {v: k for k, v in self.letras.items()}
 
-    if (op == 3): #update
-        idupdate = int(input("Insira o ID do produto que deseja alterar: "))
-        update(idupdate)
-        cursor = connection.cursor()
-        print('Novos dados do produto:')
-        print(cursor.execute("SELECT * FROM produtos_pi WHERE CODIGO=:idupdate", [idupdate]))
-        connection.commit()
-        cursor.close
+    def _transform(self, text: str, mode: int) -> str:
+        text = text.upper()
+        m1, m2 = [], []
+        
+        for n, char in enumerate(text):
+            if char not in self.letras_inv:
+                continue
+            if n % 2 == 0: m1.append(self.letras_inv[char])
+            else: m2.append(self.letras_inv[char])
+            
+        if len(text) % 2 != 0:
+            m2.append(27)
+
+        m3, m4 = ([4, 3], [1, 2]) if mode == 1 else ([22, -33], [-11, 44])
+        encrypted = []
+        
+        for n in range(len(m1)):
+            for key_matrix in [m3, m4]:
+                x = (key_matrix[0] * m1[n]) + (key_matrix[1] * m2[n])
+                x = x % 27 if (x <= 0 or x > 27) else x
+                encrypted.append(x)
+
+        result = [self.letras.get(x, ' ') for x in encrypted]
+        return ''.join(result).strip()
+
+    def encrypt(self, text: str) -> str:
+        return self._transform(text, mode=1)
+
+    def decrypt(self, text: str) -> str:
+        return self._transform(text, mode=0)
+
+# ==========================================
+# 3. INFRAESTRUTURA (Banco de Dados Oracle)
+# ==========================================
+
+class OracleProductRepository(IProductRepository):
+    """Implementação concreta do Repositório para Oracle DB."""
+    def __init__(self, connection_string: dict):
+        self.conn = oracledb.connect(**connection_string)
+
+    def save(self, p: Product) -> None:
+        with self.conn.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO produtos_pi VALUES (:1, :2, :3, :4, :5, :6, :7, :8)",
+                [p.codigo, p.nome, p.descricao, p.cp, p.cf, p.cv, p.iv, p.ml]
+            )
+            self.conn.commit()
+
+    def find_by_id(self, codigo: int) -> Optional[Product]:
+        with self.conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM produtos_pi WHERE CODIGO = :1", [codigo])
+            row = cursor.fetchone()
+            if row:
+                return Product(*row)
+        return None
+
+    def update_field(self, codigo: int, field: str, value: any) -> None:
+        # Mapeamento seguro de colunas para evitar SQL Injection dinâmico estrutural
+        fields_map = {1: "NOME", 2: "DESCRICAO", 3: "CP", 4: "CF", 5: "CV", 6: "IV", 7: "ML"}
+        col_name = fields_map.get(int(field))
+        if not col_name: return
+        
+        with self.conn.cursor() as cursor:
+            cursor.execute(f"UPDATE produtos_pi SET {col_name} = :1 WHERE CODIGO = :2", [value, codigo])
+            self.conn.commit()
+
+    def delete(self, codigo: int) -> None:
+        with self.conn.cursor() as cursor:
+            cursor.execute("DELETE FROM produtos_pi WHERE CODIGO = :1", [codigo])
+            self.conn.commit()
+
+    def find_all(self) -> List[Product]:
+        products = []
+        with self.conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM produtos_pi")
+            for row in cursor.fetchall():
+                products.append(Product(*row))
+        return products
+
+# ==========================================
+# 4. INTERFACE DE USUÁRIO (Console Driver)
+# ==========================================
+
+class ConsoleInterface:
+    def __init__(self, repository: IProductRepository, crypto: ICryptography):
+        self.repo = repository
+        self.crypto = crypto
+
+    def show_menu(self):
+        while True:
+            print("\n=== GERENCIAMENTO DE PRODUTOS ===")
+            print("1 - Inserir produto\n2 - Calcular preço em tempo de execução\n3 - Modificar produto")
+            print("4 - Apagar produto\n5 - Visualizar Produtos\n6 - Visualizar Preços\n7 - Sair do sistema")
+            try:
+                op = int(input("Escolha uma opção: "))
+                if op == 7: break
+                self._execute_option(op)
+            except ValueError:
+                print("Por favor, insira um número válido.")
+
+    def _execute_option(self, op: int):
+        if op == 1: self._insert_product()
+        elif op == 2: self._calculate_runtime_price()
+        elif op == 3: self._update_product()
+        elif op == 4: self._delete_product()
+        elif op == 5: self._list_products(show_details=False)
+        elif op == 6: self._list_products(show_details=True)
+        else: print("Opção inválida.")
+
+    def _insert_product(self):
+        print("\n-- Cadastro de Produto --")
+        id_prod = int(input("ID do produto: "))
+        nome = input("Nome: ")
+        desc = self.crypto.encrypt(input("Descrição: "))
+        cp = float(input("Custo base (CP): "))
+        cf = float(input("Custo Fixo (%): "))
+        cv = float(input("Comissão de Vendas (%): "))
+        iv = float(input("Impostos (%): "))
+        ml = float(input("Margem de Lucro desejada (%): "))
+        
+        product = Product(id_prod, nome, desc, cp, cf, cv, iv, ml)
+        self.repo.save(product)
+        print("Produto salvo com sucesso!")
+
+    def _calculate_runtime_price(self):
+        print("\n-- Simulação de Cálculo de Preço --")
+        nome = input("Nome do produto: ")
+        cp = float(input("Custo do produto: "))
+        cf = float(input("Custo fixo (%): "))
+        cv = float(input("Comissão de vendas (%): "))
+        iv = float(input("Impostos (%): "))
+        ml = float(input("Margem de lucro (%): "))
+        
+        dummy_product = Product(0, nome, "", cp, cf, cv, iv, ml)
+        self._print_financial_report(dummy_product)
+
+    def _update_product(self):
+        id_update = int(input("Insira o ID do produto que deseja alterar: "))
+        product = self.repo.find_by_id(id_update)
+        if not product:
+            print("Produto não encontrado.")
+            return
+
+        print("1-Nome | 2-Descrição | 3-CP | 4-CF | 5-CV | 6-IV | 7-ML")
+        field = int(input("O que deseja alterar? "))
+        novo_valor = input("Insira o novo valor: ")
+        
+        if field == 2:  # Re-criptografar se for alterada a descrição
+            novo_valor = self.crypto.encrypt(novo_valor)
+        elif field in [3, 4, 5, 6, 7]:
+            novo_valor = float(novo_valor)
+
+        self.repo.update_field(id_update, field, novo_valor)
+        print("Produto atualizado!")
+
+    def _delete_product(self):
+        id_del = int(input("Insira o ID do produto que deseja apagar: "))
+        self.repo.delete(id_del)
+        print("Operação concluída.")
+
+    def _list_products(self, show_details: bool):
+        products = self.repo.find_all()
+        for p in products:
+            p.descricao = self.crypto.decrypt(p.descricao) # Descriptografa ao exibir
+            if show_details:
+                self._print_financial_report(p)
+            else:
+                print(f"ID: {p.codigo} | Nome: {p.nome} | Desc: {p.descricao} | CP: {p.cp:.2f} | ML: {p.ml}%")
+
+    def _print_financial_report(self, p: Product):
+        f = p.calculate_financials()
+        print(f"\nRelatório do Produto: {p.nome} (Margem: {p.get_margin_classification()})")
+        print(f"Preço de Venda:      R$ {f['pv']:.2f}")
+        print(f"Custo de Aquisição:  R$ {p.cp:.2f} ({(p.cp/f['pv']*100 if f['pv']>0 else 0):.1f}%)")
+        print(f"Receita Bruta:       R$ {f['rb']:.2f}")
+        print(f"Custos Fixos:        R$ {f['cf_val']:.2f}")
+        print(f"Rentabilidade:       R$ {f['ra']:.2f}")
 
 
-    if (op == 4):
-        apagar = int(input("Insira o ID do produto que deseja apagar: "))
-        cursor = connection.cursor()
-        cursor.execute("DELETE FROM produtos_pi WHERE CODIGO=:apagar", [apagar])
-        connection.commit()
-        cursor.close
+# ==========================================
+# 5. EXECUÇÃO PRINCIPAL (Configuração / Injeção)
+# ==========================================
 
-    if (op == 5):
-        cursor = connection.cursor()
-        for qual in cursor.execute("SELECT * FROM produtos_pi"):
-            ID = qual[0]
-            NO = qual[1]
-            DESCRI = qual[2]
-            DESCRI = trans(0,DESCRI)
-            CP = qual[3]
-            CF = qual[4]
-            CV = qual[5]
-            IV = qual[6]
-            ML = qual[7]
-
-            PV = (CP/(1-((CF+CV+IV+ML)/100)))
-            RB = PV-CP
-            CF = (CF/100)*PV
-            CV = (CV/100)*PV
-            IV = (IV/100)*PV
-            OC = CF+CV+IV
-            RB = PV-CP
-            RA = RB-OC
-            print (ID, NO, DESCRI, CP, CF, CV, IV, ML, PV, RB, CF, IV, OC, RB, RA)
-
-
-    if (op == 6):
-        cursor = connection.cursor()
-        for qual in cursor.execute("SELECT * FROM produtos_pi"):
-            ID = qual[0]
-            NO = qual[1]
-            DESCRI = qual[2]
-            DESCRI = trans(0,DESCRI)
-            CP = qual[3]
-            CF = qual[4]
-            CV = qual[5]
-            IV = qual[6]
-            ML = qual[7]
-
-            PV = (CP/(1-((CF+CV+IV+ML)/100)))
-            RB = PV-CP
-            CF = (CF/100)*PV
-            CV = (CV/100)*PV
-            IV = (IV/100)*PV
-            OC = CF+CV+IV
-            RB = PV-CP
-            RA = RB-OC
-            print(NO)
-            print(f"Os preços do produto de ID {ID}, {NO} - {DESCRI} são:")
-            print(f"                            Valor      %")
-            print(f"Preço de venda             {PV:.2f}    {(PV/PV)*100:.2f}%")
-            print(f"Custo de aquisição         {CP:.2f}    {(CP/PV)*100:.2f}%")
-            print(f"Receita bruta              {RB:.2f}    {(RB/PV)*100:.2f}%")
-            print(f"Custo fixo                 {CF:.2f}    {(CF/PV)*100:.2f}%")
-            print(f"Comissão de vendas         {CV:.2f}     {(CV/PV)*100:.2f}%")
-            print(f"Impostos                   {IV:.2f}    {(IV/PV)*100:.2f}%")
-            print(f"Outros custos (CF+CV+IV)   {OC:.2f}    {(OC/PV)*100:.2f}%")
-            print(f"Rentabilidade              {RA:.2f}     {(RA/PV)*100 :.2f}%")
-            if (ML>20):
-                print(f"Margem de lucro ({ML:.2f}%) Alta\n")
-            if (10<=ML<=20):
-                print (f"Margem de lucro ({ML:.2f}%) Média\n")
-            if (0<ML<10):
-                print (f"Margem de lucro ({ML:.2f}%) Baixa\n")
-            if (ML == 0):
-                print (f"Margem de lucro ({ML:.2f}%) em equilíbrio\n")
-            if (ML<0):
-                print (f"Margem de lucro ({ML:.2f}%) prejuízo\n")
-
-    if (op == 7):
-        repetir = 0
+if __name__ == "__main__":
+    db_config = {
+        "user": "seu_usuario",
+        "password": "sua_senha",
+        "dsn": "BD-ACD/XE"
+    }
+    
+    try:
+        # Injeção de Dependências pura
+        crypto_service = MatrixCryptography()
+        product_repository = OracleProductRepository(db_config)
+        
+        app = ConsoleInterface(product_repository, crypto_service)
+        app.show_menu()
+        
+    except Exception as e:
+        print(f"Erro crítico na execução do sistema: {e}")

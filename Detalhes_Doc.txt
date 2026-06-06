@@ -1,0 +1,29 @@
+3. Como documentar as alterações exigidas no PDF
+
+Ao redigir o documento, use os seguintes argumentos baseados no código acima:
+
+Seção 4: Princípios SOLID
+- Single Responsibility Principle (SRP):
+  - A classe `Product` agora gerencia apenas o estado do produto e o cálculo aritmético de margem.
+  - Ela não conhece a existência do banco Oracle nem sabe como imprimir dados no console.
+
+- Dependency Inversion Principle (DIP):
+  - `ConsoleInterface` não instancia `OracleProductRepository` diretamente.
+  - Ela recebe a abstração `IProductRepository`.
+  - Se for necessário mudar o banco de dados para PostgreSQL ou MongoDB no futuro, alteramos apenas a inicialização no bloco `__main__`.
+
+Seção 5: Clean Code
+- Funções pequenas e coesas:
+  - O método antigo de cálculo repetia impressões e contas matemáticas em três partes do menu.
+  - Agora, a lógica de precificação foi encapsulada em `Product.calculate_financials()`.
+  - A geração do relatório foi unificada em `_print_financial_report()`.
+
+- Tratamento de erros:
+  - Adicionado tratamento explícito de exceções: `ValueError` e `ZeroDivisionError`.
+  - Utilização de gerenciadores de contexto (`with self.conn.cursor()`) para garantir o fechamento seguro de conexões com o Oracle.
+
+Seção 6: Padrões de Projeto GoF
+- Strategy Pattern:
+  - A interface `ICryptography` define os métodos `encrypt` e `decrypt`.
+  - A classe `MatrixCryptography` é a estratégia concreta de criptografia.
+  - Se o cliente pedir para atualizar para AES-256 amanhã, criamos uma nova classe baseada em `ICryptography` sem alterar a interface de usuário.
